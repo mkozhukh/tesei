@@ -1,0 +1,4 @@
+github.com/mkozhukh/echo v0.5.0 h1:NdE3vNwNoUWIAXiSP4gupuBAJJlh5HOpozlIwYvdzIc=
+github.com/mkozhukh/echo v0.5.0/go.mod h1:AeJwVCzMGHA7cSEUkDzr6pv1uQCBIjD1M3wEwJxzPFE=
+github.com/mkozhukh/echo-templates v0.2.0 h1:2TlKaj8+Q43iMKieM11EGCWD5jVKLtMmILyZO03VQf4=
+github.com/mkozhukh/echo-templates v0.2.0/go.mod h1:e8mgn8aVmk/SvcaOfVUwpXDfre4+EEsqNlAgemeNKuI=
