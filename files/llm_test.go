@@ -19,7 +19,7 @@ func ExampleCompleteContent() {
 		Sequential(tesei.End[TextFile]{}).
 		Build()
 
-	err := p.Start(context.Background())
+	_, err := p.Start(context.Background())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -45,7 +45,7 @@ func ExampleCompleteContent_withPrompt() {
 		Sequential(tesei.End[TextFile]{}).
 		Build()
 
-	err := p.Start(context.Background())
+	_, err := p.Start(context.Background())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -73,7 +73,7 @@ func ExampleCompleteTemplateString() {
 		Sequential(tesei.End[TextFile]{}).
 		Build()
 
-	err := p.Start(context.Background())
+	_, err := p.Start(context.Background())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -111,7 +111,7 @@ func ExampleCompleteTemplate() {
 		Sequential(tesei.End[TextFile]{}).
 		Build()
 
-	err := p.Start(context.Background())
+	_, err := p.Start(context.Background())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -123,4 +123,44 @@ func ExampleCompleteTemplate() {
 	// ../testdata/b.txt
 	// [system]: X
 	// [user]: fileB 100
+}
+
+func ExampleCompleteTemplate_withVars() {
+	source := echotemplates.NewMockSource(map[string]string{
+		"do.md": "@system: X\n@user: {{user_query}} {{x|1}} {{y|2}}",
+	})
+
+	SetModel("mock/test")
+	SetTemplatesSource(source)
+
+	p := tesei.NewPipeline[TextFile]().
+		Sequential(ListDir{Path: "../testdata", Ext: ".txt"}).
+		Sequential(ReadFile{}).
+		Sequential(tesei.SetMetaData[TextFile]{
+			Key:   "hash",
+			Value: "123",
+		}).
+		Sequential(CompleteTemplate{
+			Template: "do",
+			Vars: map[string]any{
+				"x": 100,
+				"y": "{{hash}}",
+			},
+		}).
+		Sequential(PrintContent{}).
+		Sequential(tesei.End[TextFile]{}).
+		Build()
+
+	_, err := p.Start(context.Background())
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// Output:
+	// ../testdata/a.txt
+	// [system]: X
+	// [user]: fileA 100 123
+	// ../testdata/b.txt
+	// [system]: X
+	// [user]: fileB 100 123
 }

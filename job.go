@@ -66,3 +66,25 @@ func Transform[T any](ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]
 		}
 	}
 }
+
+func Filter[T any](ctx *Thread, in <-chan *Message[T], out chan<- *Message[T], filter func(*Message[T]) bool) {
+	defer close(out)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg, ok := <-in:
+			if !ok {
+				return
+			}
+
+			if filter(msg) {
+				select {
+				case out <- msg:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}
+}

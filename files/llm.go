@@ -2,7 +2,7 @@ package files
 
 import (
 	"fmt"
-
+	
 	"github.com/mkozhukh/echo"
 	templates "github.com/mkozhukh/echo-templates"
 	"github.com/mkozhukh/tesei"
@@ -124,6 +124,7 @@ func (c CompleteContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFil
 
 type CompleteTemplateString struct {
 	Echo
+	Vars     map[string]any
 	Template string
 }
 
@@ -134,7 +135,7 @@ func (c CompleteTemplateString) Run(ctx *tesei.Thread, in <-chan *tesei.Message[
 	}
 
 	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
-		vars := templates.Extend(msg.Metadata, msg.Data.Content)
+		vars := extend(msg.Metadata, c.Vars, msg)
 		messages, meta, err := templates.GenerateWithMetadata(c.Template, vars)
 		if err != nil {
 			return msg, fmt.Errorf("complete: %w", err)
@@ -153,6 +154,7 @@ func (c CompleteTemplateString) Run(ctx *tesei.Thread, in <-chan *tesei.Message[
 
 type CompleteTemplate struct {
 	Echo
+	Vars     map[string]any
 	Template string
 }
 
@@ -168,7 +170,7 @@ func (c CompleteTemplate) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFi
 	}
 
 	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
-		vars := templates.Extend(msg.Metadata, msg.Data.Content)
+		vars := extend(msg.Metadata, c.Vars, msg)
 		messages, meta, err := c.templatesEngine.GenerateWithMetadata(c.Template, vars)
 		if err != nil {
 			return msg, fmt.Errorf("complete: %w", err)
@@ -183,4 +185,18 @@ func (c CompleteTemplate) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFi
 		msg.Data.Content = response.Text
 		return msg, nil
 	})
+}
+
+func extend(metadata map[string]any, vars map[string]any, msg *tesei.Message[TextFile]) map[string]any {
+	out := templates.Extend(metadata, msg.Data.Content)
+
+	for k, v := range vars {
+		if s, ok := v.(string); ok {
+			out[k] = resolveString(s, msg)
+		} else {
+			out[k] = v
+		}
+	}
+
+	return out
 }

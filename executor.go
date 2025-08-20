@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 type Executor[T any] interface {
-	Start(ctx context.Context) error
+	Start(ctx context.Context) (time.Duration, error)
 	Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T])
 	Input() chan<- *Message[T]
 	Output() <-chan *Message[T]
@@ -22,7 +23,8 @@ type executor[T any] struct {
 	cancel context.CancelFunc
 }
 
-func (e *executor[T]) Start(baseCtx context.Context) error {
+func (e *executor[T]) Start(baseCtx context.Context) (time.Duration, error) {
+	start := time.Now()
 	base, cancel := context.WithCancel(baseCtx)
 	ctx := NewThread(base, 1)
 	e.cancel = cancel
@@ -37,16 +39,16 @@ func (e *executor[T]) Start(baseCtx context.Context) error {
 	select {
 	case err := <-ctx.Error():
 		e.cancel()
-		return fmt.Errorf("Executor error: %w", err)
+		return time.Since(start), fmt.Errorf("Executor error: %w", err)
 	case <-ctx.Done():
 		wg.Wait()
-		return ctx.Context.Err()
+		return time.Since(start), ctx.Context.Err()
 	case <-done:
 		// All stages completed normally
 		break
 	}
 
-	return nil
+	return time.Since(start), nil
 }
 
 func (e *executor[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) {
@@ -64,7 +66,7 @@ func (e *executor[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Messag
 	}
 }
 
-func (e *executor[T]) innerRun(ctx *Thread, wg *sync.WaitGroup, done chan struct{}, in <-chan *Message[T], out chan<- *Message[T]) {
+func (e *executor[T]) innerRun(ctx *Thread, wg *sync.WaitGroup, done chan struct{}, globalIn <-chan *Message[T], globalOut chan<- *Message[T]) {
 	if len(e.stages) == 0 {
 		go func() {
 			for range e.input {
@@ -77,8 +79,20 @@ func (e *executor[T]) innerRun(ctx *Thread, wg *sync.WaitGroup, done chan struct
 
 	for i, stg := range e.stages {
 		wg.Add(1)
-		in := channels[i]
-		out := channels[i+1]
+		var in <-chan *Message[T]
+		if i == 0 {
+			in = globalIn
+		} else {
+			in = channels[i]
+		}
+
+		var out chan<- *Message[T]
+		if i == len(e.stages)-1 {
+			out = globalOut
+		} else {
+			out = channels[i+1]
+		}
+
 		go func(s stage[T], input <-chan *Message[T], output chan<- *Message[T]) {
 			s.run(ctx, input, output)
 			wg.Done()
@@ -101,12 +115,10 @@ func (e *executor[T]) Output() <-chan *Message[T] {
 
 func (e *executor[T]) wireChannels() []chan *Message[T] {
 	channels := make([]chan *Message[T], len(e.stages)+1)
-	channels[0] = e.input
 
 	for i := 1; i < len(channels)-1; i++ {
 		channels[i] = make(chan *Message[T], e.bufferSize)
 	}
 
-	channels[len(channels)-1] = e.output
 	return channels
 }

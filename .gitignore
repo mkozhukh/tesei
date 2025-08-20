@@ -1,1 +1,43 @@
-/test
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+/bin/
+/dist/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build
+/_build/
+/build/
+*.o
+*.a
+
+# Test coverage
+coverage.txt
+coverage.html
+
+# Debug
+debug/
+
+# Environment variables
+.env
+.env.local

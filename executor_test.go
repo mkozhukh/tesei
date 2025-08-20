@@ -55,7 +55,7 @@ func TestExecutorEmptyPipeline(t *testing.T) {
 
 	ctx := context.Background()
 
-	err := exec.Start(ctx)
+	_, err := exec.Start(ctx)
 	if err != nil {
 		t.Errorf("Expected no error for empty pipeline, got %v", err)
 	}
@@ -273,4 +273,48 @@ func TestExecutorBufferSize(t *testing.T) {
 	}
 
 	close(exec.Input())
+}
+
+func TestExecutorParralelPipelines(t *testing.T) {
+	var count int32
+
+	a := NewPipeline[int]().
+		Sequential(counterJob[int]{Count: &count}).Build()
+
+	b := NewPipeline[int]().
+		Sequential(counterJob[int]{Count: &count}).Build()
+
+	p := NewPipeline[int]().
+		Sequential(IntsSource{
+			Ints: []int{1, 2},
+		}).
+		Parallel(a, b).
+		Build()
+
+	p.Start(context.Background())
+
+	if count != 4 {
+		t.Errorf("Expected count to be 2, got %d", count)
+	}
+}
+
+func TestExecutorSequentialPipelines(t *testing.T) {
+	var count int32
+
+	a := NewPipeline[int]().
+		Sequential(counterJob[int]{Count: &count}).Build()
+
+	p := NewPipeline[int]().
+		Sequential(IntsSource{
+			Ints: []int{1, 2},
+		}).
+		Sequential(a).
+		Sequential(End[int]{}).
+		Build()
+
+	p.Start(context.Background())
+
+	if count != 2 {
+		t.Errorf("Expected count to be 2, got %d", count)
+	}
 }

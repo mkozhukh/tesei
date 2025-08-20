@@ -19,6 +19,21 @@ func (s StringsSource) Run(ctx *Thread, in <-chan *Message[string], out chan<- *
 	}
 }
 
+type IntsSource struct {
+	Ints []int
+}
+
+func (s IntsSource) Run(ctx *Thread, in <-chan *Message[int], out chan<- *Message[int]) {
+	defer close(out)
+	for _, i := range s.Ints {
+		select {
+		case out <- NewMessage(i):
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 type End[T any] struct {
 	Log bool
 }
@@ -80,13 +95,18 @@ func (l Log[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) 
 }
 
 type SetMetaData[T any] struct {
-	Key   string
-	Value any
+	Key     string
+	Value   any
+	Handler func(msg *Message[T]) any
 }
 
 func (s SetMetaData[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) {
 	Transform(ctx, in, out, func(msg *Message[T]) (*Message[T], error) {
-		msg.Metadata[s.Key] = s.Value
+		if s.Handler != nil {
+			msg.Metadata[s.Key] = s.Handler(msg)
+		} else {
+			msg.Metadata[s.Key] = s.Value
+		}
 		return msg, nil
 	})
 }
