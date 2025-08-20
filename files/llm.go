@@ -2,7 +2,8 @@ package files
 
 import (
 	"fmt"
-	
+	"strings"
+
 	"github.com/mkozhukh/echo"
 	templates "github.com/mkozhukh/echo-templates"
 	"github.com/mkozhukh/tesei"
@@ -199,4 +200,60 @@ func extend(metadata map[string]any, vars map[string]any, msg *tesei.Message[Tex
 	}
 
 	return out
+}
+
+type CleanAfterLLM struct{}
+
+func (c CleanAfterLLM) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
+	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
+		msg.Data.Content = c.cleanText(msg.Data.Content)
+		return msg, nil
+	})
+}
+
+func (c CleanAfterLLM) cleanText(content string) string {
+	// Create a replacer with all the unicode characters that need to be replaced
+	replacer := strings.NewReplacer(
+		// Arrow replacements
+		"→", "->",
+		"⟶", "->",
+		"⇒", "->",
+		"➔", "->",
+		"➜", "->",
+		"➡", "->",
+		"⇨", "->",
+		"⟹", "->",
+
+		// Long dash replacements
+		"—", "-", // em dash
+		"–", "-", // en dash
+		"―", "-", // horizontal bar
+		"‒", "-", // figure dash
+		"⸺", "-", // two-em dash
+		"⸻", "-", // three-em dash
+
+		// Non-breaking spaces and other whitespace characters
+		"\u00A0", " ", // non-breaking space
+		"\u1680", " ", // Ogham space mark
+		"\u2000", " ", // en quad
+		"\u2001", " ", // em quad
+		"\u2002", " ", // en space
+		"\u2003", " ", // em space
+		"\u2004", " ", // three-per-em space
+		"\u2005", " ", // four-per-em space
+		"\u2006", " ", // six-per-em space
+		"\u2007", " ", // figure space
+		"\u2008", " ", // punctuation space
+		"\u2009", " ", // thin space
+		"\u200A", " ", // hair space
+		"\u202F", " ", // narrow no-break space
+		"\u205F", " ", // medium mathematical space
+		"\u3000", " ", // ideographic space
+		"\uFEFF", "", // zero-width no-break space (remove entirely)
+		"\u200B", "", // zero-width space (remove entirely)
+		"\u200C", "", // zero-width non-joiner (remove entirely)
+		"\u200D", "", // zero-width joiner (remove entirely)
+	)
+
+	return replacer.Replace(content)
 }

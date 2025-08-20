@@ -16,6 +16,21 @@ type TextFile struct {
 	Content string
 }
 
+type Source struct {
+	Files []TextFile
+}
+
+func (s Source) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
+	defer close(out)
+	for _, file := range s.Files {
+		select {
+		case out <- tesei.NewMessageWithID(file.Name, &file):
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 type ListDir struct {
 	Path     string
 	Ext      string
@@ -190,4 +205,12 @@ func (r RenameFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], o
 		msg.Data.Name = strings.TrimSuffix(msg.Data.Name, prevExt) + suffix + ext
 		return msg, nil
 	})
+}
+
+type Transform struct {
+	Handler func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error)
+}
+
+func (t Transform) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
+	tesei.Transform(ctx, in, out, t.Handler)
 }
