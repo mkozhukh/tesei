@@ -32,20 +32,22 @@ func (s Source) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out c
 }
 
 type ListDir struct {
-	Path     string
-	Ext      string
-	Log      bool
-	Limit    int
-	Nested   bool
-	MaxDepth int
+	Path          string
+	Ext           string
+	Log           bool
+	Limit         int
+	Nested        bool
+	MaxDepth      int
+	FilterFolders func(name, path string) bool
+	FilterFiles   func(name, path string) bool
 }
 
 func (l ListDir) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
 	defer close(out)
-	l.processDirectory(ctx, l.Path, out, 0, 0)
+	l.processDirectory(ctx, l.Path, "", out, 0, 0)
 }
 
-func (l ListDir) processDirectory(ctx *tesei.Thread, dirPath string, out chan<- *tesei.Message[TextFile], level int, count int) int {
+func (l ListDir) processDirectory(ctx *tesei.Thread, dirPath, relPath string, out chan<- *tesei.Message[TextFile], level int, count int) int {
 	// Check if we've reached max depth
 	if l.MaxDepth > 0 && level >= l.MaxDepth {
 		return -1
@@ -67,9 +69,13 @@ func (l ListDir) processDirectory(ctx *tesei.Thread, dirPath string, out chan<- 
 	})
 
 	for _, file := range files {
+		baseName := file.Name()
 		if file.IsDir() {
 			if l.Nested {
-				count = l.processDirectory(ctx, filepath.Join(dirPath, file.Name()), out, level+1, count)
+				if l.FilterFolders != nil && !l.FilterFolders(baseName, filepath.Join(relPath, baseName)) {
+					continue
+				}
+				count = l.processDirectory(ctx, filepath.Join(dirPath, file.Name()), filepath.Join(relPath, file.Name()), out, level+1, count)
 				if count < 0 || (l.Limit > 0 && count >= l.Limit) {
 					return count
 				}
@@ -81,8 +87,12 @@ func (l ListDir) processDirectory(ctx *tesei.Thread, dirPath string, out chan<- 
 			continue
 		}
 
+		if l.FilterFiles != nil && !l.FilterFiles(baseName, filepath.Join(relPath, baseName)) {
+			continue
+		}
+
 		textFile := TextFile{
-			Name:   file.Name(),
+			Name:   baseName,
 			Folder: dirPath,
 		}
 
