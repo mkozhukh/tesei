@@ -123,7 +123,7 @@ func TestTransformJobContextCancellation(t *testing.T) {
 	transform := &TransformJob[int]{
 		Transform: func(msg *Message[int]) (*Message[int], error) {
 			counter++
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			return msg, nil
 		},
 	}

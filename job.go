@@ -26,6 +26,9 @@ func (t TransformJob[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Mes
 			if msg.Error == nil || t.ProcessError {
 				var err error
 				msg, err = t.Transform(msg)
+				if msg == nil {
+					continue
+				}
 				if err != nil {
 					msg.Error = err
 				}
@@ -52,6 +55,9 @@ func Transform[T any](ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]
 			if msg.Error == nil {
 				var err error
 				msg, err = transform(msg)
+				if msg == nil {
+					continue
+				}
 				if err != nil {
 					msg.Error = err
 				}
