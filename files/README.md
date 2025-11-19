@@ -94,3 +94,38 @@ files.Filter{
     },
 }
 ```
+
+### `Split`
+Splits a file into multiple chunks based on a user-defined rule. Adds metadata (`split_id`, `split_index`, `split_total`) for later merging.
+
+```go
+files.Split{
+    By: func(text string) []string {
+        return strings.Split(text, "\n\n") // Split by paragraph
+    },
+}
+```
+
+### `Merge`
+Merges chunks back into a single file. Expects `split_id`, `split_index`, and `split_total` metadata.
+
+```go
+files.Merge{
+    Glue: "\n\n", // Join with double newline
+    // Or use a custom function:
+    // By: func(chunks []string) string { ... },
+}
+```
+
+### `Clone`
+Generates multiple messages from a single input message using a custom handler. Useful for creating variants of a file.
+
+```go
+files.Clone{
+    By: func(msg *tesei.Message[files.TextFile]) []*tesei.Message[files.TextFile] {
+        m1 := msg.Clone()
+        m1.Data.Name += ".bak"
+        return []*tesei.Message[files.TextFile]{msg, m1}
+    },
+}
+```
