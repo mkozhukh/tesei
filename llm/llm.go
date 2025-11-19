@@ -19,22 +19,28 @@ func init() {
 	templatesPath = "~/.prompts"
 }
 
+// SetTemplatesPath sets the global path for loading templates.
 func SetTemplatesPath(path string) {
 	templatesPath = path
 }
 
+// SetTemplatesSource sets a custom template source for loading templates.
 func SetTemplatesSource(source templates.TemplateSource) {
 	templatesSource = source
 }
 
+// SetModel sets the global default model name.
 func SetModel(m string) {
 	model = m
 }
 
+// SetAPIKey sets the global default API key.
 func SetAPIKey(a string) {
 	apiKey = a
 }
 
+// Echo is a base struct for LLM-based jobs.
+// It holds configuration for the LLM client and template engine.
 type Echo struct {
 	Model         string
 	APIKey        string
@@ -101,8 +107,10 @@ func (c *Echo) initTemplatesEngine(ctx *tesei.Thread) error {
 	return nil
 }
 
+// CompleteContent is a job that sends the file content to an LLM and replaces it with the response.
 type CompleteContent struct {
 	Echo
+	// Prompt is the system prompt to use for the completion.
 	Prompt string
 }
 
@@ -123,9 +131,12 @@ func (c CompleteContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[files.T
 	})
 }
 
+// CompleteTemplateString is a job that renders a template string using metadata and sends it to an LLM.
 type CompleteTemplateString struct {
 	Echo
-	Vars     map[string]any
+	// Vars is a map of variables to pass to the template.
+	Vars map[string]any
+	// Template is the template string to render.
 	Template string
 }
 
@@ -153,9 +164,12 @@ func (c CompleteTemplateString) Run(ctx *tesei.Thread, in <-chan *tesei.Message[
 	})
 }
 
+// CompleteTemplate is a job that renders a template file using metadata and sends it to an LLM.
 type CompleteTemplate struct {
 	Echo
-	Vars     map[string]any
+	// Vars is a map of variables to pass to the template.
+	Vars map[string]any
+	// Template is the name of the template file to render.
 	Template string
 }
 

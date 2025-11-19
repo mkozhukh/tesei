@@ -34,7 +34,8 @@ func hashBase62(input string, size int) string {
 	return string(chars)
 }
 
-// ResolveString replaces template variables in the format {{key}} with values from metadata
+// ResolveString replaces template variables in the format {{key}} with values from metadata.
+// It supports string, int, float64, and bool metadata values.
 func ResolveString(input string, msg *tesei.Message[TextFile]) string {
 	// Quick check - if no template markers, return immediately
 	if !strings.Contains(input, "{{") {
@@ -81,7 +82,8 @@ func ResolveString(input string, msg *tesei.Message[TextFile]) string {
 	return result.String()
 }
 
-// FormatValue converts metadata values to strings with type safety
+// FormatValue converts metadata values to strings with type safety.
+// It handles string, int, float64, and bool types. Returns empty string for nil or unsupported types.
 func FormatValue(value interface{}) string {
 	if value == nil {
 		return ""

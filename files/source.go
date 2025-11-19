@@ -10,12 +10,14 @@ import (
 	"github.com/mkozhukh/tesei"
 )
 
+// TextFile represents a text file with its name, folder path, and content.
 type TextFile struct {
 	Name    string
 	Folder  string
 	Content string
 }
 
+// Source is a job that emits a pre-defined list of TextFile messages.
 type Source struct {
 	Files []TextFile
 }
@@ -31,6 +33,8 @@ func (s Source) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out c
 	}
 }
 
+// ListDir is a job that lists files in a directory and emits them as TextFile messages.
+// It supports filtering by extension, nested directories, and custom filters.
 type ListDir struct {
 	Path          string
 	Ext           string
@@ -114,6 +118,7 @@ func (l ListDir) processDirectory(ctx *tesei.Thread, dirPath, relPath string, ou
 	return count
 }
 
+// ReadFile is a job that reads the content of files referenced by incoming TextFile messages.
 type ReadFile struct{}
 
 func (r ReadFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
@@ -127,11 +132,17 @@ func (r ReadFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out
 	})
 }
 
+// WriteFile is a job that writes the content of TextFile messages to disk.
+// It can write to the original folder or a new target folder.
 type WriteFile struct {
+	// BasePath is the base path to strip from the original file path when writing to a new folder.
 	BasePath string
-	Folder   string
-	DryRun   bool
-	Log      bool
+	// Folder is the target folder to write to.
+	Folder string
+	// DryRun simulates the write operation without actually writing to disk.
+	DryRun bool
+	// Log enables logging of written files.
+	Log bool
 }
 
 func (w WriteFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
@@ -172,6 +183,7 @@ func (w WriteFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], ou
 	})
 }
 
+// PrintContent is a job that prints the content of TextFile messages to stdout.
 type PrintContent struct{}
 
 func (p PrintContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
@@ -182,8 +194,11 @@ func (p PrintContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile],
 	})
 }
 
+// HashContent is a job that calculates a hash of the file content and stores it in metadata.
 type HashContent struct {
-	Key  string
+	// Key is the metadata key to store the hash in. Defaults to "hash".
+	Key string
+	// Size is the length of the generated hash string.
 	Size int
 }
 
@@ -198,9 +213,12 @@ func (h HashContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], 
 	})
 }
 
+// RenameFile is a job that renames files by modifying their Name field.
 type RenameFile struct {
+	// Suffix is appended to the filename before the extension.
 	Suffix string
-	Ext    string
+	// Ext is the new extension to use. If empty, preserves original extension.
+	Ext string
 }
 
 func (r RenameFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
@@ -217,6 +235,7 @@ func (r RenameFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], o
 	})
 }
 
+// Transform is a wrapper for a custom transformation function on TextFile messages.
 type Transform struct {
 	Handler func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error)
 }

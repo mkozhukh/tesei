@@ -8,9 +8,13 @@ import (
 	"github.com/mkozhukh/tesei/files"
 )
 
+// Markdown is a job that processes markdown content.
+// It can escape HTML tags in content and lowercase internal links.
 type Markdown struct {
+	// EscapeTagsInContent determines if HTML tags should be escaped.
 	EscapeTagsInContent bool
-	LowerCaseLinks      bool
+	// LowerCaseLinks determines if internal links should be lowercased.
+	LowerCaseLinks bool
 }
 
 type codeBlock struct {

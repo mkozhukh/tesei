@@ -119,8 +119,8 @@ For full details, please refer to the [GoDoc documentation](https://pkg.go.dev/g
 > **Mandatory End Job**: Top-level pipelines MUST end with a consumer job like `tesei.End[T]`. This job ensures all messages are pulled through the pipeline. Without it, the pipeline will block indefinitely once internal buffers are full.
 
 ### Helpers
-- `TransformJob[T]`: A struct-based helper for simple 1-to-1 transformations.
-- `Transform[T]`: A function helper to implement custom jobs without writing the loop/select boilerplate.
+- `TransformJob[T]`: A struct-based helper for simple 1-to-1 transformations. Returning `nil` filters the message.
+- `Transform[T]`: A function helper to implement custom jobs without writing the loop/select boilerplate. Returning `nil` filters the message.
 
 ### Common jobs
 - `Slice[T]`: A function helper to create a job that emits a slice of data.

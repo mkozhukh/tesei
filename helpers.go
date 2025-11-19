@@ -2,6 +2,8 @@ package tesei
 
 import "sync/atomic"
 
+// CounterJob is a job that counts the number of messages passing through it.
+// It uses atomic operations to be safe for concurrent use.
 type CounterJob[T any] struct {
 	Count *int32
 }

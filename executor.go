@@ -7,10 +7,17 @@ import (
 	"time"
 )
 
+// Executor is the runtime engine for the pipeline.
+// It manages the execution of stages and data flow.
 type Executor[T any] interface {
+	// Start initiates the pipeline execution.
+	// It returns the duration of execution and any critical error that occurred.
 	Start(ctx context.Context) (time.Duration, error)
+	// Run executes the pipeline as a Job, allowing nesting.
 	Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T])
+	// Input returns the input channel of the pipeline.
 	Input() chan<- *Message[T]
+	// Output returns the output channel of the pipeline.
 	Output() <-chan *Message[T]
 }
 

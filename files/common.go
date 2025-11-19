@@ -6,7 +6,10 @@ import (
 	"github.com/mkozhukh/tesei"
 )
 
+// Replace is a job that performs string replacements on the content of TextFile messages.
 type Replace struct {
+	// Matches is a map of strings to replace. Key is the target, Value is the replacement.
+	// Value can contain template placeholders resolved against message metadata.
 	Matches map[string]string
 }
 
@@ -20,7 +23,9 @@ func (c Replace) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out 
 	})
 }
 
+// Filter is a job that filters TextFile messages based on a custom predicate.
 type Filter struct {
+	// Match is the predicate function. If it returns true, the message is passed through.
 	Match func(msg *tesei.Message[TextFile]) bool
 }
 

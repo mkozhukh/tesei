@@ -6,15 +6,23 @@ import (
 	"time"
 )
 
+// Message is the fundamental unit of data that flows through the pipeline.
+// It contains the data payload, a unique ID, metadata, and error state.
 type Message[T any] struct {
-	ID       string
-	Data     T
+	// ID is a unique identifier for the message.
+	ID string
+	// Data is the payload of the message.
+	Data T
+	// Metadata is a map for storing arbitrary key-value pairs.
 	Metadata map[string]any
 
-	Error      error
+	// Error holds any error that occurred during processing of this message.
+	Error error
+	// ErrorStage indicates the stage where the error occurred.
 	ErrorStage string
 }
 
+// NewMessage creates a new message with the given data and a generated ID.
 func NewMessage[T any](data T) *Message[T] {
 	return &Message[T]{
 		ID:       generateID(),
@@ -23,6 +31,7 @@ func NewMessage[T any](data T) *Message[T] {
 	}
 }
 
+// NewMessageWithID creates a new message with the given ID and data.
 func NewMessageWithID[T any](id string, data *T) *Message[T] {
 	return &Message[T]{
 		ID:       id,
@@ -31,16 +40,20 @@ func NewMessageWithID[T any](id string, data *T) *Message[T] {
 	}
 }
 
+// HasError returns true if the message contains an error.
 func (m *Message[T]) HasError() bool {
 	return m.Error != nil
 }
 
+// WithError sets the error and error stage on the message.
 func (m *Message[T]) WithError(err error, stage string) *Message[T] {
 	m.Error = err
 	m.ErrorStage = stage
 	return m
 }
 
+// Clone creates a shallow copy of the message.
+// The Metadata map is copied, but the Data payload is shallow copied.
 func (m *Message[T]) Clone() *Message[T] {
 	n := Message[T]{
 		ID:       m.ID,
@@ -66,15 +79,3 @@ func generateID() string {
 	}
 	return hex.EncodeToString(b)
 }
-
-// type TextFile struct {
-// 	Name string
-// 	Path string
-// 	Content string
-// }
-
-// func NewTextFileMessage(path string) *TextFile {
-// 	return &TextFile{
-// 		Path: path,
-// 	}
-// }

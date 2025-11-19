@@ -4,7 +4,10 @@ import (
 	"fmt"
 )
 
+// End is a sink job that consumes all messages.
+// It is required at the end of the pipeline to prevent blocking.
 type End[T any] struct {
+	// Log determines if the job should log the completion of each message.
 	Log bool
 }
 
@@ -30,9 +33,13 @@ func (e End[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) 
 	}
 }
 
+// Log is a job that logs messages as they pass through.
+// It does not modify the messages.
 type Log[T any] struct {
+	// Message is a prefix for the log message.
 	Message string
-	Print   func(msg *Message[T], err error) string
+	// Print is a custom function to format the log message.
+	Print func(msg *Message[T], err error) string
 }
 
 func (l Log[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) {
@@ -69,9 +76,13 @@ func (l Log[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) 
 	}
 }
 
+// SetMetaData is a job that sets a metadata key-value pair on passing messages.
 type SetMetaData[T any] struct {
-	Key     string
-	Value   any
+	// Key is the metadata key to set.
+	Key string
+	// Value is the value to set. Used if Handler is nil.
+	Value any
+	// Handler is a function to generate the value dynamically based on the message.
 	Handler func(msg *Message[T]) any
 }
 
@@ -86,6 +97,7 @@ func (s SetMetaData[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Mess
 	})
 }
 
+// Slice is a source job that emits a slice of items as messages.
 type Slice[T any] struct {
 	Items []T
 }
