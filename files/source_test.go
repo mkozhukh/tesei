@@ -101,7 +101,7 @@ func ExampleRenameFile_withHashParralel() {
 		fmt.Println("error:", err)
 	}
 
-	// Output:
+	// Unordered output:
 	// write file: ../testdata/a_ivgFrYaM.css
 	// write file: ../testdata/a_ivgFrYaM.js
 }
@@ -128,7 +128,7 @@ func ExampleRenameFile_withHashParralelPipelines() {
 		fmt.Println("error:", err)
 	}
 
-	// Output:
+	// Unordered output:
 	// write file: ../testdata/a_ivgFrYaM.css
 	// write file: ../testdata/b_ivgFrYaM.css
 	// write file: ../testdata/a_ivgFrYaM.js

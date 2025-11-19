@@ -205,11 +205,11 @@ type RenameFile struct {
 
 func (r RenameFile) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
 	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
-		ext := resolveString(r.Ext, msg)
+		ext := ResolveString(r.Ext, msg)
 		if ext == "" {
 			ext = filepath.Ext(msg.Data.Name)
 		}
-		suffix := resolveString(r.Suffix, msg)
+		suffix := ResolveString(r.Suffix, msg)
 
 		prevExt := filepath.Ext(msg.Data.Name)
 		msg.Data.Name = strings.TrimSuffix(msg.Data.Name, prevExt) + suffix + ext

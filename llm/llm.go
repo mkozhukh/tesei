@@ -1,12 +1,12 @@
-package files
+package llm
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/mkozhukh/echo"
 	templates "github.com/mkozhukh/echo-templates"
 	"github.com/mkozhukh/tesei"
+	"github.com/mkozhukh/tesei/files"
 )
 
 var model string
@@ -106,13 +106,13 @@ type CompleteContent struct {
 	Prompt string
 }
 
-func (c CompleteContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
+func (c CompleteContent) Run(ctx *tesei.Thread, in <-chan *tesei.Message[files.TextFile], out chan<- *tesei.Message[files.TextFile]) {
 	err := c.init(ctx)
 	if err != nil {
 		return
 	}
 
-	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
+	tesei.Transform(ctx, in, out, func(msg *tesei.Message[files.TextFile]) (*tesei.Message[files.TextFile], error) {
 		response, err := c.Client.Call(ctx, echo.QuickMessage(msg.Data.Content), echo.WithSystemMessage(c.Prompt))
 		if err != nil {
 			return msg, fmt.Errorf("complete: %w", err)
@@ -129,13 +129,13 @@ type CompleteTemplateString struct {
 	Template string
 }
 
-func (c CompleteTemplateString) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
+func (c CompleteTemplateString) Run(ctx *tesei.Thread, in <-chan *tesei.Message[files.TextFile], out chan<- *tesei.Message[files.TextFile]) {
 	err := c.init(ctx)
 	if err != nil {
 		return
 	}
 
-	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
+	tesei.Transform(ctx, in, out, func(msg *tesei.Message[files.TextFile]) (*tesei.Message[files.TextFile], error) {
 		vars := extend(msg.Metadata, c.Vars, msg)
 		messages, meta, err := templates.GenerateWithMetadata(c.Template, vars)
 		if err != nil {
@@ -159,7 +159,7 @@ type CompleteTemplate struct {
 	Template string
 }
 
-func (c CompleteTemplate) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
+func (c CompleteTemplate) Run(ctx *tesei.Thread, in <-chan *tesei.Message[files.TextFile], out chan<- *tesei.Message[files.TextFile]) {
 	err := c.init(ctx)
 	if err != nil {
 		return
@@ -170,7 +170,7 @@ func (c CompleteTemplate) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFi
 		return
 	}
 
-	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
+	tesei.Transform(ctx, in, out, func(msg *tesei.Message[files.TextFile]) (*tesei.Message[files.TextFile], error) {
 		vars := extend(msg.Metadata, c.Vars, msg)
 		messages, meta, err := c.templatesEngine.GenerateWithMetadata(c.Template, vars)
 		if err != nil {
@@ -188,72 +188,16 @@ func (c CompleteTemplate) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFi
 	})
 }
 
-func extend(metadata map[string]any, vars map[string]any, msg *tesei.Message[TextFile]) map[string]any {
+func extend(metadata map[string]any, vars map[string]any, msg *tesei.Message[files.TextFile]) map[string]any {
 	out := templates.Extend(metadata, msg.Data.Content)
 
 	for k, v := range vars {
 		if s, ok := v.(string); ok {
-			out[k] = resolveString(s, msg)
+			out[k] = files.ResolveString(s, msg)
 		} else {
 			out[k] = v
 		}
 	}
 
 	return out
-}
-
-type CleanAfterLLM struct{}
-
-func (c CleanAfterLLM) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
-	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
-		msg.Data.Content = c.cleanText(msg.Data.Content)
-		return msg, nil
-	})
-}
-
-func (c CleanAfterLLM) cleanText(content string) string {
-	// Create a replacer with all the unicode characters that need to be replaced
-	replacer := strings.NewReplacer(
-		// Arrow replacements
-		"→", "->",
-		"⟶", "->",
-		"⇒", "->",
-		"➔", "->",
-		"➜", "->",
-		"➡", "->",
-		"⇨", "->",
-		"⟹", "->",
-
-		// Long dash replacements
-		"—", "-", // em dash
-		"–", "-", // en dash
-		"―", "-", // horizontal bar
-		"‒", "-", // figure dash
-		"⸺", "-", // two-em dash
-		"⸻", "-", // three-em dash
-
-		// Non-breaking spaces and other whitespace characters
-		"\u00A0", " ", // non-breaking space
-		"\u1680", " ", // Ogham space mark
-		"\u2000", " ", // en quad
-		"\u2001", " ", // em quad
-		"\u2002", " ", // en space
-		"\u2003", " ", // em space
-		"\u2004", " ", // three-per-em space
-		"\u2005", " ", // four-per-em space
-		"\u2006", " ", // six-per-em space
-		"\u2007", " ", // figure space
-		"\u2008", " ", // punctuation space
-		"\u2009", " ", // thin space
-		"\u200A", " ", // hair space
-		"\u202F", " ", // narrow no-break space
-		"\u205F", " ", // medium mathematical space
-		"\u3000", " ", // ideographic space
-		"\uFEFF", "", // zero-width no-break space (remove entirely)
-		"\u200B", "", // zero-width space (remove entirely)
-		"\u200C", "", // zero-width non-joiner (remove entirely)
-		"\u200D", "", // zero-width joiner (remove entirely)
-	)
-
-	return replacer.Replace(content)
 }

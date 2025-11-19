@@ -1,10 +1,11 @@
-package files
+package text
 
 import (
 	"context"
 	"testing"
 
 	"github.com/mkozhukh/tesei"
+	"github.com/mkozhukh/tesei/files"
 )
 
 func TestMarkdown_EscapeTagsInContent(t *testing.T) {
@@ -258,14 +259,14 @@ func TestMarkdown_EscapeTagsInContent(t *testing.T) {
 
 func TestMarkdown_Run(t *testing.T) {
 	// Create a test message
-	in := make(chan *tesei.Message[TextFile], 1)
-	out := make(chan *tesei.Message[TextFile], 1)
+	in := make(chan *tesei.Message[files.TextFile], 1)
+	out := make(chan *tesei.Message[files.TextFile], 1)
 
 	testContent := "This has a <DIV> tag and ```\n<CODE> in block\n```"
 	expectedContent := "This has a `<DIV>` tag and ```\n<CODE> in block\n```"
 
-	msg := &tesei.Message[TextFile]{
-		Data: TextFile{
+	msg := &tesei.Message[files.TextFile]{
+		Data: files.TextFile{
 			Name:    "test.md",
 			Folder:  "/test",
 			Content: testContent,
@@ -291,13 +292,13 @@ func TestMarkdown_Run(t *testing.T) {
 
 func TestMarkdown_DisabledRule(t *testing.T) {
 	// Test that when EscapeTagsInContent is false, no transformation occurs
-	in := make(chan *tesei.Message[TextFile], 1)
-	out := make(chan *tesei.Message[TextFile], 1)
+	in := make(chan *tesei.Message[files.TextFile], 1)
+	out := make(chan *tesei.Message[files.TextFile], 1)
 
 	testContent := "This has a <DIV> tag that should not be escaped"
 
-	msg := &tesei.Message[TextFile]{
-		Data: TextFile{
+	msg := &tesei.Message[files.TextFile]{
+		Data: files.TextFile{
 			Name:    "test.md",
 			Folder:  "/test",
 			Content: testContent,
@@ -432,14 +433,14 @@ func TestMarkdown_LowerCaseLinks(t *testing.T) {
 
 func TestMarkdown_RunWithLowerCaseLinks(t *testing.T) {
 	// Create a test message
-	in := make(chan *tesei.Message[TextFile], 1)
-	out := make(chan *tesei.Message[TextFile], 1)
+	in := make(chan *tesei.Message[files.TextFile], 1)
+	out := make(chan *tesei.Message[files.TextFile], 1)
 
 	testContent := "Check [this](/Docs/Guide.MD) and visit [external](https://GitHub.com/USER)"
 	expectedContent := "Check [this](/docs/guide.md) and visit [external](https://GitHub.com/USER)"
 
-	msg := &tesei.Message[TextFile]{
-		Data: TextFile{
+	msg := &tesei.Message[files.TextFile]{
+		Data: files.TextFile{
 			Name:    "test.md",
 			Folder:  "/test",
 			Content: testContent,
@@ -465,14 +466,14 @@ func TestMarkdown_RunWithLowerCaseLinks(t *testing.T) {
 
 func TestMarkdown_BothRulesEnabled(t *testing.T) {
 	// Test with both EscapeTagsInContent and LowerCaseLinks enabled
-	in := make(chan *tesei.Message[TextFile], 1)
-	out := make(chan *tesei.Message[TextFile], 1)
+	in := make(chan *tesei.Message[files.TextFile], 1)
+	out := make(chan *tesei.Message[files.TextFile], 1)
 
 	testContent := "Has <DIV> tag and [link](/Path/To/FILE.md) and [external](https://EXAMPLE.com)"
 	expectedContent := "Has `<DIV>` tag and [link](/path/to/file.md) and [external](https://EXAMPLE.com)"
 
-	msg := &tesei.Message[TextFile]{
-		Data: TextFile{
+	msg := &tesei.Message[files.TextFile]{
+		Data: files.TextFile{
 			Name:    "test.md",
 			Folder:  "/test",
 			Content: testContent,

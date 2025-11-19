@@ -34,8 +34,8 @@ func hashBase62(input string, size int) string {
 	return string(chars)
 }
 
-// resolveString replaces template variables in the format {{key}} with values from metadata
-func resolveString(input string, msg *tesei.Message[TextFile]) string {
+// ResolveString replaces template variables in the format {{key}} with values from metadata
+func ResolveString(input string, msg *tesei.Message[TextFile]) string {
 	// Quick check - if no template markers, return immediately
 	if !strings.Contains(input, "{{") {
 		return input
@@ -69,7 +69,7 @@ func resolveString(input string, msg *tesei.Message[TextFile]) string {
 		// Extract and resolve key
 		key := input[i+2 : i+2+end]
 		if key != "" {
-			if value := formatValue(msg.Metadata[key]); value != "" {
+			if value := FormatValue(msg.Metadata[key]); value != "" {
 				result.WriteString(value)
 			}
 			// If value is empty or key doesn't exist, we write nothing (key disappears)
@@ -81,8 +81,8 @@ func resolveString(input string, msg *tesei.Message[TextFile]) string {
 	return result.String()
 }
 
-// formatValue converts metadata values to strings with type safety
-func formatValue(value interface{}) string {
+// FormatValue converts metadata values to strings with type safety
+func FormatValue(value interface{}) string {
 	if value == nil {
 		return ""
 	}

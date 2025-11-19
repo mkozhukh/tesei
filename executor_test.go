@@ -1,4 +1,4 @@
-package tesei
+package tesei_test
 
 import (
 	"context"
@@ -7,12 +7,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/mkozhukh/tesei"
 )
 
 func TestExecutorRun(t *testing.T) {
-	p := NewPipeline[string]().
-		Sequential(&TransformJob[string]{
-			Transform: func(msg *Message[string]) (*Message[string], error) {
+	p := tesei.NewPipeline[string]().
+		Sequential(&tesei.TransformJob[string]{
+			Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 				msg.Data = strings.ToUpper(msg.Data)
 				return msg, nil
 			},
@@ -25,8 +27,8 @@ func TestExecutorRun(t *testing.T) {
 	go exec.Start(ctx)
 	time.Sleep(10 * time.Millisecond)
 
-	exec.Input() <- NewMessage("hello")
-	exec.Input() <- NewMessage("world")
+	exec.Input() <- tesei.NewMessage("hello")
+	exec.Input() <- tesei.NewMessage("world")
 	close(exec.Input())
 
 	result1 := <-exec.Output()
@@ -50,7 +52,7 @@ func TestExecutorRun(t *testing.T) {
 }
 
 func TestExecutorEmptyPipeline(t *testing.T) {
-	p := NewPipeline[int]()
+	p := tesei.NewPipeline[int]()
 	exec := p.Build()
 
 	ctx := context.Background()
@@ -73,9 +75,9 @@ func TestExecutorEmptyPipeline(t *testing.T) {
 }
 
 func SkipTestExecutorContextCancellation(t *testing.T) {
-	p := NewPipeline[int]().
-		Sequential(&TransformJob[int]{
-			Transform: func(msg *Message[int]) (*Message[int], error) {
+	p := tesei.NewPipeline[int]().
+		Sequential(&tesei.TransformJob[int]{
+			Transform: func(msg *tesei.Message[int]) (*tesei.Message[int], error) {
 				time.Sleep(100 * time.Millisecond)
 				return msg, nil
 			},
@@ -88,7 +90,7 @@ func SkipTestExecutorContextCancellation(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	for i := 0; i < 10; i++ {
-		exec.Input() <- NewMessage(i)
+		exec.Input() <- tesei.NewMessage(i)
 	}
 
 	time.Sleep(50 * time.Millisecond)
@@ -97,7 +99,7 @@ func SkipTestExecutorContextCancellation(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	select {
-	case exec.Input() <- NewMessage(999):
+	case exec.Input() <- tesei.NewMessage(999):
 		t.Error("Expected input to be closed after cancellation")
 	default:
 	}
@@ -107,8 +109,8 @@ func TestExecutorChannelWiring(t *testing.T) {
 	var mu sync.Mutex
 	processOrder := []string{}
 
-	job1 := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	job1 := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			mu.Lock()
 			processOrder = append(processOrder, "job1")
 			mu.Unlock()
@@ -117,8 +119,8 @@ func TestExecutorChannelWiring(t *testing.T) {
 		},
 	}
 
-	job2 := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	job2 := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			mu.Lock()
 			processOrder = append(processOrder, "job2")
 			mu.Unlock()
@@ -127,8 +129,8 @@ func TestExecutorChannelWiring(t *testing.T) {
 		},
 	}
 
-	job3 := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	job3 := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			mu.Lock()
 			processOrder = append(processOrder, "job3")
 			mu.Unlock()
@@ -137,7 +139,7 @@ func TestExecutorChannelWiring(t *testing.T) {
 		},
 	}
 
-	p := NewPipeline[string]().
+	p := tesei.NewPipeline[string]().
 		Sequential(job1).
 		Sequential(job2).
 		Sequential(job3)
@@ -148,7 +150,7 @@ func TestExecutorChannelWiring(t *testing.T) {
 	go exec.Start(ctx)
 	time.Sleep(10 * time.Millisecond)
 
-	exec.Input() <- NewMessage("test")
+	exec.Input() <- tesei.NewMessage("test")
 	close(exec.Input())
 
 	result := <-exec.Output()
@@ -164,20 +166,20 @@ func TestExecutorChannelWiring(t *testing.T) {
 }
 
 func TestExecutorErrorPropagation(t *testing.T) {
-	failingJob := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	failingJob := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			return msg, errors.New("test error")
 		},
 	}
 
-	p := NewPipeline[string]().Sequential(failingJob)
+	p := tesei.NewPipeline[string]().Sequential(failingJob)
 	exec := p.Build()
 
 	ctx := context.Background()
 	go exec.Start(ctx)
 	time.Sleep(10 * time.Millisecond)
 
-	exec.Input() <- NewMessage("test")
+	exec.Input() <- tesei.NewMessage("test")
 	close(exec.Input())
 
 	result := <-exec.Output()
@@ -191,28 +193,28 @@ func TestExecutorErrorPropagation(t *testing.T) {
 }
 
 func TestExecutorComplexPipeline(t *testing.T) {
-	uppercase := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	uppercase := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			msg.Data = strings.ToUpper(msg.Data)
 			return msg, nil
 		},
 	}
 
-	addPrefix := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	addPrefix := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			msg.Data = "PREFIX_" + msg.Data
 			return msg, nil
 		},
 	}
 
-	addSuffix := &TransformJob[string]{
-		Transform: func(msg *Message[string]) (*Message[string], error) {
+	addSuffix := &tesei.TransformJob[string]{
+		Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
 			msg.Data = msg.Data + "_SUFFIX"
 			return msg, nil
 		},
 	}
 
-	p := NewPipeline[string]().
+	p := tesei.NewPipeline[string]().
 		Sequential(uppercase).
 		Parallel(addPrefix, addSuffix).
 		WithBufferSize(10)
@@ -223,7 +225,7 @@ func TestExecutorComplexPipeline(t *testing.T) {
 	go exec.Start(ctx)
 	time.Sleep(10 * time.Millisecond)
 
-	exec.Input() <- NewMessage("hello")
+	exec.Input() <- tesei.NewMessage("hello")
 	close(exec.Input())
 
 	results := make(map[string]bool)
@@ -245,20 +247,19 @@ func TestExecutorComplexPipeline(t *testing.T) {
 }
 
 func TestExecutorBufferSize(t *testing.T) {
-	p := NewPipeline[int]().
-		Sequential(&TransformJob[int]{
-			Transform: func(msg *Message[int]) (*Message[int], error) {
+	p := tesei.NewPipeline[int]().
+		Sequential(&tesei.TransformJob[int]{
+			Transform: func(msg *tesei.Message[int]) (*tesei.Message[int], error) {
 				time.Sleep(10 * time.Millisecond)
 				return msg, nil
 			},
 		}).
 		WithBufferSize(5)
 
-	exec := p.Build().(*executor[int])
+	exec := p.Build()
 
-	if exec.bufferSize != 5 {
-		t.Errorf("Expected buffer size 5, got %d", exec.bufferSize)
-	}
+	// Cannot check private field bufferSize in black-box test
+	// Instead verify behavior (non-blocking send)
 
 	ctx := context.Background()
 	go exec.Start(ctx)
@@ -266,7 +267,7 @@ func TestExecutorBufferSize(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		select {
-		case exec.Input() <- NewMessage(i):
+		case exec.Input() <- tesei.NewMessage(i):
 		case <-time.After(10 * time.Millisecond):
 			t.Errorf("Expected to be able to send %d messages without blocking", i+1)
 		}
@@ -278,38 +279,34 @@ func TestExecutorBufferSize(t *testing.T) {
 func TestExecutorParralelPipelines(t *testing.T) {
 	var count int32
 
-	a := NewPipeline[int]().
-		Sequential(counterJob[int]{Count: &count}).Build()
+	a := tesei.NewPipeline[int]().
+		Sequential(tesei.CounterJob[int]{Count: &count}).Build()
 
-	b := NewPipeline[int]().
-		Sequential(counterJob[int]{Count: &count}).Build()
+	b := tesei.NewPipeline[int]().
+		Sequential(tesei.CounterJob[int]{Count: &count}).Build()
 
-	p := NewPipeline[int]().
-		Sequential(IntsSource{
-			Ints: []int{1, 2},
-		}).
+	p := tesei.NewPipeline[int]().
+		Sequential(tesei.Slice[int]{Items: []int{1, 2}}).
 		Parallel(a, b).
 		Build()
 
 	p.Start(context.Background())
 
 	if count != 4 {
-		t.Errorf("Expected count to be 2, got %d", count)
+		t.Errorf("Expected count to be 4, got %d", count)
 	}
 }
 
 func TestExecutorSequentialPipelines(t *testing.T) {
 	var count int32
 
-	a := NewPipeline[int]().
-		Sequential(counterJob[int]{Count: &count}).Build()
+	a := tesei.NewPipeline[int]().
+		Sequential(tesei.CounterJob[int]{Count: &count}).Build()
 
-	p := NewPipeline[int]().
-		Sequential(IntsSource{
-			Ints: []int{1, 2},
-		}).
+	p := tesei.NewPipeline[int]().
+		Sequential(tesei.Slice[int]{Items: []int{1, 2}}).
 		Sequential(a).
-		Sequential(End[int]{}).
+		Sequential(tesei.End[int]{}).
 		Build()
 
 	p.Start(context.Background())

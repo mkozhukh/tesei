@@ -4,36 +4,6 @@ import (
 	"fmt"
 )
 
-type StringsSource struct {
-	Strings []string
-}
-
-func (s StringsSource) Run(ctx *Thread, in <-chan *Message[string], out chan<- *Message[string]) {
-	defer close(out)
-	for _, str := range s.Strings {
-		select {
-		case out <- NewMessageWithID(str, &str):
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-type IntsSource struct {
-	Ints []int
-}
-
-func (s IntsSource) Run(ctx *Thread, in <-chan *Message[int], out chan<- *Message[int]) {
-	defer close(out)
-	for _, i := range s.Ints {
-		select {
-		case out <- NewMessage(i):
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
 type End[T any] struct {
 	Log bool
 }
@@ -62,6 +32,7 @@ func (e End[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) 
 
 type Log[T any] struct {
 	Message string
+	Print   func(msg *Message[T], err error) string
 }
 
 func (l Log[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) {
@@ -75,14 +46,18 @@ func (l Log[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) 
 				return
 			}
 
-			if msg.Error != nil {
-				errorStr := msg.Error.Error()
-				if msg.ErrorStage != "" {
-					errorStr = msg.ErrorStage + ": " + errorStr
-				}
-				fmt.Println("[error]", l.Message, msg.ID, errorStr)
+			if l.Print != nil {
+				fmt.Println(l.Print(msg, msg.Error))
 			} else {
-				fmt.Println("[ok]", l.Message, msg.ID)
+				if msg.Error != nil {
+					errorStr := msg.Error.Error()
+					if msg.ErrorStage != "" {
+						errorStr = msg.ErrorStage + ": " + errorStr
+					}
+					fmt.Println("[error]", l.Message, msg.ID, errorStr)
+				} else {
+					fmt.Println("[ok]", l.Message, msg.ID)
+				}
 			}
 
 			select {
@@ -109,4 +84,19 @@ func (s SetMetaData[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Mess
 		}
 		return msg, nil
 	})
+}
+
+type Slice[T any] struct {
+	Items []T
+}
+
+func (s Slice[T]) Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T]) {
+	defer close(out)
+	for _, item := range s.Items {
+		select {
+		case out <- NewMessage(item):
+		case <-ctx.Done():
+			return
+		}
+	}
 }

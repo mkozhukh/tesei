@@ -165,7 +165,6 @@ func TestPipelineChaining(t *testing.T) {
 func TestPipelineBuild(t *testing.T) {
 	p := NewPipeline[int]().
 		Sequential(JobFunc[int](func(ctx *Thread, in <-chan *Message[int], out chan<- *Message[int]) {
-			return
 		})).
 		WithBufferSize(10)
 
@@ -193,7 +192,6 @@ func TestPipelineCompileStages(t *testing.T) {
 	p := NewPipeline[int]()
 
 	job := JobFunc[int](func(ctx *Thread, in <-chan *Message[int], out chan<- *Message[int]) {
-		return
 	})
 
 	p.Sequential(job, job).Parallel(job, job)

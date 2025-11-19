@@ -1,10 +1,11 @@
-package files
+package text
 
 import (
 	"regexp"
 	"strings"
 
 	"github.com/mkozhukh/tesei"
+	"github.com/mkozhukh/tesei/files"
 )
 
 type Markdown struct {
@@ -17,8 +18,8 @@ type codeBlock struct {
 	end   int
 }
 
-func (m Markdown) Run(ctx *tesei.Thread, in <-chan *tesei.Message[TextFile], out chan<- *tesei.Message[TextFile]) {
-	tesei.Transform(ctx, in, out, func(msg *tesei.Message[TextFile]) (*tesei.Message[TextFile], error) {
+func (m Markdown) Run(ctx *tesei.Thread, in <-chan *tesei.Message[files.TextFile], out chan<- *tesei.Message[files.TextFile]) {
+	tesei.Transform(ctx, in, out, func(msg *tesei.Message[files.TextFile]) (*tesei.Message[files.TextFile], error) {
 		if m.EscapeTagsInContent {
 			msg.Data.Content = m.escapeTagsInContent(msg.Data.Content)
 		}

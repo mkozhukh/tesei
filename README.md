@@ -1,6 +1,15 @@
 # Tesei
 
-A Go library for building data processing pipelines, born from demand to automate mass file processing through LLM
+A Go library for building robust data processing pipelines.
+
+## Why Tesei?
+
+Tesei was born from the need to automate mass file processing, specifically for LLM-based workflows. It provides a type-safe, generic way to build pipelines that can handle sequential, parallel, and fan-out execution patterns. Whether you're processing thousands of text files, transforming data streams, or orchestrating complex LLM interactions, Tesei offers a clean and maintainable approach.
+
+Key features:
+- **Type-Safe**: Built with Go generics for compile-time safety.
+- **Flexible**: Support for Sequential, Parallel, and Fan-Out execution models.
+- **Simple**: Minimal API surface, easy to understand and extend.
 
 ## Installation
 
@@ -8,283 +17,180 @@ A Go library for building data processing pipelines, born from demand to automat
 go get github.com/mkozhukh/tesei
 ```
 
-## Quick Example
+## Standard Libraries
+
+Tesei comes with a set of standard libraries for common tasks:
+
+- **[files](files/README.md)**: File system operations (Read, Write, List) and text file processing.
+- **[llm](llm/README.md)**: Integration with Large Language Models (OpenAI, Anthropic, etc.).
+- **[text](text/README.md)**: Text processing and cleaning utilities (Markdown, LLM cleanup).
+
+## Usage
+
+### Basic Pipeline
 
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
-    "github.com/mkozhukh/tesei"
-    "github.com/mkozhukh/tesei/files"
+	"context"
+	"fmt"
+
+	"github.com/mkozhukh/tesei"
 )
 
 func main() {
-    // Create a pipeline that reads text files and processes them
-    pipeline := tesei.NewPipeline[files.TextFile]().
-        Sequential(files.ListDir{Path: "./data", Ext: ".txt"}).
-        Sequential(files.ReadFile{}).
-        Sequential(files.CompleteContent{Prompt: "Summarize this text"}).
-        Sequential(files.WriteFile{}).
-        Sequential(tesei.End[files.TextFile]{}).
-        Build()
+	p := tesei.NewPipeline[string]().
+		Sequential(tesei.Slice[string]{Items: []string{"a", "b", "c"}}).
+		Sequential(tesei.TransformJob[string]{
+			Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
+				msg.Data = msg.Data + "_processed"
+				return msg, nil
+			},
+		}).
+		Sequential(tesei.End[string]{}).
+		Build()
 
-    err := pipeline.Start(context.Background())
-    if err != nil {
-        fmt.Println("Pipeline error:", err)
-    }
+	_, err := p.Start(context.Background())
+	if err != nil {
+		panic(err)
+	}
 }
 ```
 
-## Core Concepts
+### File Processing with LLM
 
-### Message
-The basic unit of data flowing through the pipeline:
-- `ID`: Unique identifier for tracking
-- `Data`: The actual payload (generic type)
-- `Metadata`: Key-value pairs for additional context
-- `Error` and `ErrorStage`: Error handling information
-
-### Job
-The processing unit that operates on messages. Implement the `Job[T]` interface:
 ```go
-type Job[T any] interface {
-    Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T])
+package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/mkozhukh/tesei"
+	"github.com/mkozhukh/tesei/files"
+	"github.com/mkozhukh/tesei/llm"
+)
+
+func main() {
+	llm.SetModel("openai/gpt-4o")
+
+	p := tesei.NewPipeline[files.TextFile]().
+		Sequential(files.ListDir{Path: "./docs", Ext: ".md"}).
+		Sequential(files.ReadFile{}).
+		Sequential(llm.CompleteContent{
+			Prompt: "Summarize this document in one sentence.",
+		}).
+		Sequential(files.WriteFile{Folder: "./summaries"}).
+		Sequential(tesei.End[files.TextFile]{}).
+		Build()
+
+	_, err := p.Start(context.Background())
+	if err != nil {
+		panic(err)
+	}
 }
 ```
 
-### Pipeline
-Chain jobs together using different execution patterns:
-- **Sequential**: Process messages one after another
-- **Parallel**: Process messages through multiple jobs simultaneously
-- **FanOut**: Distribute work across multiple instances of the same job
+## API Reference
 
-## Public API
+For full details, please refer to the [GoDoc documentation](https://pkg.go.dev/github.com/mkozhukh/tesei).
 
-### Pipeline Building
+### Pipeline Builder
+- `NewPipeline[T]()`: Creates a new pipeline builder for type `T`.
+- `Sequential(jobs ...Job[T])`: Adds one or more jobs to be executed sequentially.
+- `Parallel(jobs ...Job[T])`: Adds a stage where input messages are broadcast to multiple jobs running in parallel.
+- `FanOut(job Job[T], count int)`: Adds a stage where a single job is run by multiple workers (competing consumers).
+- `WithBufferSize(size int)`: Sets the buffer size for channels between stages.
+- `Build()`: Compiles the pipeline and returns an `Executor`.
+
+### Core Interfaces
+- `Job[T]`: The interface for any processing unit.
+  ```go
+  type Job[T any] interface {
+      Run(ctx *Thread, in <-chan *Message[T], out chan<- *Message[T])
+  }
+  ```
+- `Message[T]`: The data unit flowing through the pipeline. Contains `Data`, `ID`, `Metadata`, and `Error`.
+- `Executor[T]`: The runtime engine created by `Build()`. Use `Start(ctx)` to run it.
+  - **Note**: `Executor[T]` also implements `Job[T]`, so you can use a built pipeline as a job within another pipeline.
+
+> [!IMPORTANT]
+> **Mandatory End Job**: Top-level pipelines MUST end with a consumer job like `tesei.End[T]`. This job ensures all messages are pulled through the pipeline. Without it, the pipeline will block indefinitely once internal buffers are full.
+
+### Helpers
+- `TransformJob[T]`: A struct-based helper for simple 1-to-1 transformations.
+- `Transform[T]`: A function helper to implement custom jobs without writing the loop/select boilerplate.
+
+### Common jobs
+- `Slice[T]`: A function helper to create a job that emits a slice of data.
+- `Filter[T]`: A function helper to filter messages based on a predicate.
+- `Log[T]`: A function helper to log messages.
+- `End[T]`: A function helper to end the pipeline.
+
+## Common Scenarios
+
+### 1. Mass File Processing (Sequential)
+**Scenario**: You have a directory of text files and want to read them, perform some operation, and write them back.
 
 ```go
-// Create a new pipeline
-pipeline := tesei.NewPipeline[T]()
-
-// Add sequential stages
-pipeline.Sequential(job1).Sequential(job2)
-
-// Add parallel branches (messages are duplicated to each branch)
-pipeline.Parallel(branchJob1, branchJob2)
-
-// Add fan-out stage (messages are distributed across workers)
-pipeline.FanOut(workerJob, workerCount)
-
-// Set buffer size for channels
-pipeline.WithBufferSize(10)
-
-// Build the executor
-executor := pipeline.Build()
-
-// Start the pipeline
-err := executor.Start(context.Background())
+tesei.NewPipeline[files.TextFile]().
+    Sequential(files.ListDir{Path: "./input", Ext: ".txt"}). // 1. List files
+    Sequential(files.ReadFile{}).                            // 2. Read content
+    Sequential(myCustomProcessingJob).                       // 3. Modify content
+    Sequential(files.WriteFile{DryRun: false}).              // 4. Save changes
+    Build()
 ```
 
-### Built-in Jobs
+### 2. Parallel Analysis (Broadcasting)
+**Scenario**: You want to perform multiple *different* analyses on the same file simultaneously (e.g., generate a summary AND extract keywords).
 
-#### Core Jobs
-
-- `TransformJob[T]`: Apply a transformation function to each message
 ```go
-tesei.TransformJob[string]{
-    Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
-        msg.Data = strings.ToUpper(msg.Data)
-        return msg, nil
-    },
-}
+// Define specific jobs
+summarizeJob := files.CompleteContent{Prompt: "Summarize this text"}
+keywordsJob := files.CompleteContent{Prompt: "Extract keywords"}
+
+tesei.NewPipeline[files.TextFile]().
+    Sequential(files.ListDir{Path: "./data"}).
+    Sequential(files.ReadFile{}).
+    // Parallel broadcasts the SAME message to all branches.
+    // Each branch receives a clone of the message.
+    Parallel(summarizeJob, keywordsJob). 
+    // Note: You'll likely want a merge step or independent sinks after this
+    Build()
+```
+*Note: `Parallel` broadcasts messages. If you want to split work across workers, use `FanOut`.*
+
+### 3. High-Throughput Worker Pool (Fan-Out)
+**Scenario**: You have a large queue of items and want to process them using a pool of workers to maximize throughput.
+
+```go
+tesei.NewPipeline[string]().
+    Sequential(sourceJob).
+    // Spawns 10 workers consuming from the same input channel
+    FanOut(heavyComputationJob, 10). 
+    Sequential(tesei.End[string]{}).
+    Build()
 ```
 
-- `End[T]`: Terminal job that consumes messages
-```go
-tesei.End[string]{Log: true} // Optionally log processed messages
-```
-
-- `Log[T]`: Pass-through job that logs messages
-```go
-tesei.Log[string]{Message: "Processing step"}
-```
-
-- `SetMetaData[T]`: Add metadata to messages
-```go
-tesei.SetMetaData[string]{Key: "source", Value: "api"}
-```
-
-- `StringsSource`: Generate messages from a slice of strings
-```go
-tesei.StringsSource{Strings: []string{"one", "two", "three"}}
-```
-
-#### File Processing Jobs (files package)
-
-- `ListDir`: List files in a directory
-```go
-files.ListDir{Path: "./data", Ext: ".txt"}
-```
-
-- `ReadFile`: Read file contents
-```go
-files.ReadFile{}
-```
-
-- `WriteFile`: Write file contents
-```go
-files.WriteFile{DryRun: false}
-```
-
-- `PrintContent`: Print file contents to stdout
-```go
-files.PrintContent{}
-```
-
-#### LLM Integration Jobs (files package)
-
-- `CompleteContent`: Process content with LLM
-```go
-files.CompleteContent{
-    Prompt: "Summarize this text",
-    Model: "google/fast",
-}
-```
-
-- `CompleteTemplateString`: Process content with LLM by using inline template
-```go
-files.CompleteTemplateString{
-    Template: "@system: You are a helpful assistant\n@user: {{user_query}}",
-}
-```
-
-- `CompleteTemplate`: Process content with LLM by using template from file system
-```go
-files.CompleteTemplate{
-    Template: "summarize", // References ~/.prompts/summarize.md
-}
-```
-
-## Creating Custom Jobs
-
-### Method 1: Use Transform Helper
+### 4. Advanced: Nested Pipelines
+**Scenario**: You want to encapsulate a complex sequence of steps into a reusable component.
 
 ```go
-type MyJob struct{}
+// Create a sub-pipeline (note: no End job, so it passes data through)
+subPipeline := tesei.NewPipeline[string]().
+    Sequential(step1).
+    Sequential(step2).
+    Build()
 
-func (j MyJob) Run(ctx *tesei.Thread, in <-chan *tesei.Message[string], out chan<- *tesei.Message[string]) {
-    tesei.Transform(ctx, in, out, func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
-        // Process the message
-        msg.Data = processData(msg.Data)
-        return msg, nil
-    })
-}
-```
-
-### Method 2: Implement Job Interface
-
-```go
-type WordCounter struct {
-    MinLength int
-}
-
-func (w WordCounter) Run(ctx *tesei.Thread, in <-chan *tesei.Message[string], out chan<- *tesei.Message[string]) {
-    defer close(out)
-    for {
-        select {
-        case msg, ok := <-in:
-            if !ok {
-                return
-            }
-            words := strings.Fields(msg.Data)
-            count := 0
-            for _, word := range words {
-                if len(word) >= w.MinLength {
-                    count++
-                }
-            }
-            msg.Metadata["word_count"] = count
-            select {
-            case out <- msg:
-            case <-ctx.Done():
-                return
-            }
-        case <-ctx.Done():
-            return
-        }
-    }
-}
-```
-
-- job must close the `out` channel
-- job must be ready to exit on `ctx.Done`
-
-
-## Error Handling
-
-There are two types of errors
-
-### job initialization error
-
-reports that job can't work properly at all, need to be reported through context
-
-```go
-ctx.Error() <- err
-```
-
-### message proceessing errors
-
-error related to processing specific file, stored on message
-
-```go
-if err != nil {
-    msg.Error = err
-}
-```
-
-message with error still need to be pushed in the output channel
-
-such message will be ignored by predefined jobs provided by package ( except of Log/End jobs)
-
-if you are using TransformJob helper you can set `ProcessError` flag to receive errors as well
-
-```go
-recoveryJob := tesei.TransformJob[string]{
-    ProcessError: true,
-    Transform: func(msg *tesei.Message[string]) (*tesei.Message[string], error) {
-        if msg.HasError() {
-            // Handle the error
-            msg.Data = "recovered: " + msg.Data
-            msg.Error = nil
-            msg.ErrorStage = ""
-        }
-        return msg, nil
-    },
-}
-```
-
-## Configuration
-
-### LLM Configuration (files package)
-
-```go
-// Set global model
-files.SetModel("google/gemini-1.5-pro")
-
-// Set API key
-files.SetAPIKey("your-api-key")
-
-// Set templates path
-files.SetTemplatesPath("~/.prompts")
-
-// Or use custom template source
-files.SetTemplatesSource(customSource)
+// Use the sub-pipeline as a job in the main pipeline
+mainPipeline := tesei.NewPipeline[string]().
+    Sequential(source).
+    Sequential(subPipeline). // Executor implements Job!
+    Sequential(tesei.End[string]{}).
+    Build()
 ```
 
 ## License
 
-MIT License
-
-See LICENSE file for details.
+MIT License. See [LICENSE](LICENSE) for details.
